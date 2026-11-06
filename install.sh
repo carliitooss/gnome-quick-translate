@@ -69,9 +69,9 @@ then
   cat >&2 <<'MSG'
 
 Install the dependencies first:
-  Ubuntu/Debian: sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
-  Fedora:        sudo dnf install python3-gobject gtk4 libadwaita
-  Arch:          sudo pacman -S python-gobject gtk4 libadwaita
+  Ubuntu/Debian: sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-secret-1
+  Fedora:        sudo dnf install python3-gobject gtk4 libadwaita libsecret
+  Arch:          sudo pacman -S python-gobject gtk4 libadwaita libsecret
 MSG
   exit 1
 fi

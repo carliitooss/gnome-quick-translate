@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cantarell:wght@400;700&family=Material+Symbols+Rounded:opsz,wght,FILL@20,400,0&display=swap">
+<style>
+body{margin:0;background:#deddda;font-family:Cantarell,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#1c71d8}a:hover{color:#1a5fb4}
+.ms{font-family:'Material Symbols Rounded';font-size:18px;line-height:1;font-weight:normal;font-style:normal;display:inline-block}
+</style>
+</helmet>
+<section id="t2" style="padding:56px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:28px;font-weight:700;color:#241f31">Quick Translate — stacked dialog</div>
+<div style="font-size:15px;color:#5e5c64;max-width:760px;text-wrap:pretty">The gear in the header bar opens settings inside the same popup: translation service and API key, target language, and an optional TSV log you can import into Anki.</div>
+</div>
+
+<div id="2a" style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:10px;align-items:center"><span style="font-size:12px;font-weight:700;background:#241f31;color:#fff;border-radius:6px;padding:3px 7px">2a</span><span style="font-size:16px;font-weight:700;color:#241f31">Translate</span><span style="font-size:14px;color:#5e5c64">empty, translating, result, offline</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,560px);gap:16px">
+<sc-for list="{{ variants }}" as="v" hint-placeholder-count="8">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:12px;color:#5e5c64">{{ v.label }}</div>
+<div style="height:400px;border-radius:12px;background:{{ v.desk }};display:flex;justify-content:center;align-items:center">
+<div style="width:440px;background:{{ v.surface }};border-radius:14px;box-shadow:0 0 0 1px {{ v.outline }},0 10px 32px rgba(0,0,0,.28);overflow:hidden">
+<div style="height:46px;display:flex;align-items:center;justify-content:center;position:relative">
+<span style="position:absolute;left:8px;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:{{ v.fg }}"><span class="ms">settings</span></span>
+<span style="font-size:14px;font-weight:700;color:{{ v.fg }}">English → {{ lang }}</span>
+<span style="position:absolute;right:10px;width:24px;height:24px;border-radius:12px;background:{{ v.tint }};display:flex;align-items:center;justify-content:center;color:{{ v.fg }}"><span class="ms" style="font-size:16px">close</span></span>
+</div>
+<div style="padding:4px 18px 18px;min-height:76px;font-size:16px;line-height:1.45;color:{{ v.fg }}">
+<sc-if value="{{ v.isEmpty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center"><span style="width:2px;height:20px;background:{{ v.accent }};margin-right:2px"></span><span style="color:{{ v.dim }}">Type in English…</span></div></sc-if>
+<sc-if value="{{ v.hasText }}"><div style="text-wrap:pretty">{{ source }}</div></sc-if>
+</div>
+<div style="margin:0 10px 10px;border-radius:10px;background:{{ v.tint }};padding:14px 16px;min-height:76px;font-size:16px;line-height:1.45;color:{{ v.fg }};box-sizing:border-box">
+<div style="font-size:12px;font-weight:700;color:{{ v.dim }};margin-bottom:6px">{{ lang }}</div>
+<sc-if value="{{ v.isEmpty }}" hint-placeholder-val="{{ true }}"><div style="color:{{ v.dim }};font-size:14px">Press Enter to translate</div></sc-if>
+<sc-if value="{{ v.loading }}"><div style="display:flex;align-items:center;gap:8px;font-size:14px;color:{{ v.dim }}"><span class="ms">progress_activity</span>Translating…</div></sc-if>
+<sc-if value="{{ v.result }}"><div style="text-wrap:pretty">{{ target }}</div></sc-if>
+<sc-if value="{{ v.error }}"><div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><div style="display:flex;gap:8px;align-items:center"><span class="ms" style="color:{{ v.err }}">wifi_off</span>You’re offline. Connect to translate.</div><span style="align-self:flex-start;font-size:13px;font-weight:700;background:{{ v.surface }};border-radius:6px;padding:6px 12px">Retry</span></div></sc-if>
+</div>
+<sc-if value="{{ v.saved }}">
+<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px 6px;font-size:12px;color:{{ v.dim }}"><span class="ms" style="font-size:15px;color:{{ v.ok }}">check_circle</span>Saved to translations.tsv</div>
+</sc-if>
+<sc-if value="{{ hints }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:16px;justify-content:center;padding:2px 14px 12px;font-size:12px;color:{{ v.dim }}">
+<span style="display:flex;gap:6px;align-items:center"><span style="border:1px solid {{ v.outline }};border-radius:5px;padding:1px 6px">Enter</span>{{ v.enterLabel }}</span>
+<span style="display:flex;gap:6px;align-items:center"><span style="border:1px solid {{ v.outline }};border-radius:5px;padding:1px 6px">Esc</span>Close</span>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div id="2b" style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:10px;align-items:center"><span style="font-size:12px;font-weight:700;background:#241f31;color:#fff;border-radius:6px;padding:3px 7px">2b</span><span style="font-size:16px;font-weight:700;color:#241f31">Settings</span><span style="font-size:14px;color:#5e5c64">opened from the gear; Anki export on and off</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,560px);gap:16px">
+<sc-for list="{{ settingsVariants }}" as="v" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:12px;color:#5e5c64">{{ v.label }}</div>
+<div style="height:620px;border-radius:12px;background:{{ v.desk }};display:flex;justify-content:center;align-items:center">
+<div style="width:440px;background:{{ v.surface }};border-radius:14px;box-shadow:0 0 0 1px {{ v.outline }},0 10px 32px rgba(0,0,0,.28);overflow:hidden;color:{{ v.fg }}">
+<div style="height:46px;display:flex;align-items:center;justify-content:center;position:relative">
+<span style="position:absolute;left:8px;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center"><span class="ms">arrow_back</span></span>
+<span style="font-size:14px;font-weight:700">Settings</span>
+<span style="position:absolute;right:10px;width:24px;height:24px;border-radius:12px;background:{{ v.tint }};display:flex;align-items:center;justify-content:center"><span class="ms" style="font-size:16px">close</span></span>
+</div>
+<div style="padding:6px 14px 18px;display:flex;flex-direction:column;gap:18px">
+
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:13px;font-weight:700;padding:0 4px">Translation</div>
+<div style="border-radius:12px;background:{{ v.tint }};box-shadow:0 0 0 1px {{ v.outline }};overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;font-size:14px">
+<span style="flex:1">Service</span>
+<span style="color:{{ v.dim }}">{{ service }}</span><span class="ms" style="color:{{ v.dim }}">expand_more</span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;min-height:56px;padding:0 14px;border-top:1px solid {{ v.outline }};font-size:14px">
+<div style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;color:{{ v.dim }}">API key</span><span style="letter-spacing:2px">••••••••••••••3f2a</span></div>
+<span class="ms" style="color:{{ v.dim }}">visibility</span>
+</div>
+</div>
+<div style="font-size:12px;color:{{ v.dim }};padding:0 4px;text-wrap:pretty">Stored in the GNOME keyring.</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:13px;font-weight:700;padding:0 4px">Language</div>
+<div style="border-radius:12px;background:{{ v.tint }};box-shadow:0 0 0 1px {{ v.outline }};overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;font-size:14px">
+<span style="flex:1">Translate English into</span>
+<span style="color:{{ v.dim }}">{{ lang }}</span><span class="ms" style="color:{{ v.dim }}">expand_more</span>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:13px;font-weight:700;padding:0 4px">Anki</div>
+<div style="border-radius:12px;background:{{ v.tint }};box-shadow:0 0 0 1px {{ v.outline }};overflow:hidden">
+<div style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;font-size:14px;box-sizing:border-box">
+<div style="flex:1;display:flex;flex-direction:column;gap:3px"><span>Save translations to TSV</span><span style="font-size:12px;color:{{ v.dim }}">Each translation becomes a card</span></div>
+<span style="width:42px;height:24px;border-radius:12px;background:{{ v.switchBg }};display:flex;align-items:center;justify-content:{{ v.switchAlign }};padding:0 3px;box-sizing:border-box"><span style="width:18px;height:18px;border-radius:9px;background:#ffffff"></span></span>
+</div>
+<sc-if value="{{ v.anki }}">
+<div style="display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 14px;border-top:1px solid {{ v.outline }};font-size:14px;box-sizing:border-box">
+<div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:12px;color:{{ v.dim }}">File</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">~/Documents/Anki/translations.tsv</span></div>
+<span style="width:32px;height:32px;border-radius:8px;background:{{ v.tint }};display:flex;align-items:center;justify-content:center"><span class="ms">folder_open</span></span>
+</div>
+<div style="display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border-top:1px solid {{ v.outline }};font-size:14px">
+<span style="flex:1">Columns</span>
+<span style="color:{{ v.dim }}">English, {{ lang }}</span>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ v.anki }}"><div style="font-size:12px;color:{{ v.dim }};padding:0 4px;text-wrap:pretty">In Anki, use File → Import and choose this file.</div></sc-if>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;targetLanguage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Spanish&quot;,&quot;German&quot;,&quot;French&quot;,&quot;Japanese&quot;],&quot;default&quot;:&quot;Spanish&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;service&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;DeepL&quot;,&quot;Google Cloud Translation&quot;,&quot;LibreTranslate&quot;],&quot;default&quot;:&quot;DeepL&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showKeyHints&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const langs = {
+      Spanish: '¿Dónde está la estación de tren más cercana?',
+      German: 'Wo ist der nächste Bahnhof?',
+      French: 'Où se trouve la gare la plus proche ?',
+      Japanese: '一番近い駅はどこですか？'
+    };
+    const lang = this.props.targetLanguage ?? 'Spanish';
+    const target = langs[lang] || langs.Spanish;
+    const themes = [
+      { name: 'Light', desk: '#c0bfbc', surface: '#ffffff', fg: 'rgba(0,0,6,.8)', dim: 'rgba(0,0,6,.55)', tint: 'rgba(0,0,6,.05)', outline: 'rgba(0,0,6,.09)', accent: '#3584e4', err: '#c01c28', ok: '#26a269', off: 'rgba(0,0,6,.2)' },
+      { name: 'Dark', desk: '#3d3846', surface: '#383838', fg: '#ffffff', dim: 'rgba(255,255,255,.6)', tint: 'rgba(255,255,255,.07)', outline: 'rgba(255,255,255,.1)', accent: '#78aeed', err: '#ff7b63', ok: '#8ff0a4', off: 'rgba(255,255,255,.2)' }
+    ];
+    const states = [
+      { key: 'Empty', isEmpty: true, enterLabel: 'Translate' },
+      { key: 'Translating', hasText: true, loading: true, enterLabel: 'Translate' },
+      { key: 'Result', hasText: true, result: true, saved: true, enterLabel: 'Copy' },
+      { key: 'Offline', hasText: true, error: true, enterLabel: 'Retry' }
+    ];
+    const variants = [], settingsVariants = [];
+    themes.forEach(t => states.forEach(s => variants.push({ ...t, ...s, label: `${s.key} · ${t.name}` })));
+    [true, false].forEach(anki => themes.forEach(t => settingsVariants.push({
+      ...t, anki, label: `Anki export ${anki ? 'on' : 'off'} · ${t.name}`,
+      switchBg: anki ? '#3584e4' : t.off, switchAlign: anki ? 'flex-end' : 'flex-start'
+    })));
+    return { variants, settingsVariants, lang, target, service: this.props.service ?? 'DeepL', source: 'Where is the nearest train station?', hints: this.props.showKeyHints ?? true };
+  }
+}
+</script>
+</body>
+</html>

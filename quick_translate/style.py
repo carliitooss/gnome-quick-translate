@@ -1,4 +1,4 @@
-"""Colours and CSS for layout 1b ("Stacked dialog") in light and dark."""
+"""Colours and CSS for designs 2a (translate) and 2b (settings), light and dark."""
 
 LIGHT = {
     "surface": "#ffffff",
@@ -8,6 +8,9 @@ LIGHT = {
     "outline": "rgba(0,0,6,0.09)",
     "accent": "#3584e4",
     "err": "#c01c28",
+    "ok": "#26a269",
+    "off": "rgba(0,0,6,0.2)",
+    "switch_on": "#3584e4",
     "selection": "rgba(53,132,228,0.25)",
 }
 
@@ -19,6 +22,9 @@ DARK = {
     "outline": "rgba(255,255,255,0.1)",
     "accent": "#78aeed",
     "err": "#ff7b63",
+    "ok": "#8ff0a4",
+    "off": "rgba(255,255,255,0.2)",
+    "switch_on": "#3584e4",
     "selection": "rgba(120,174,237,0.3)",
 }
 
@@ -95,6 +101,80 @@ button.qt-retry {
 }
 button.qt-retry:hover { background-image: image(alpha(currentColor, 0.06)); }
 button.qt-retry:active { background-image: image(alpha(currentColor, 0.12)); }
+
+/* Gear / back: 32px square, 8px radius, flat. */
+.qt-header button.qt-header-button {
+  min-width: 32px; min-height: 32px; padding: 0;
+  border-radius: 8px;
+  color: %(fg)s;
+  margin-left: 2px;
+}
+.qt-header button.qt-header-button:hover { background-color: %(tint)s; }
+.qt-header button.qt-header-button:active { background-color: alpha(%(fg)s, 0.12); }
+
+/* "Saved to translations.tsv": padding 0 14 6, 12px dim, green check. */
+.qt-saved { padding: 0 14px 6px; }
+.qt-saved label { font-size: 12px; color: %(dim)s; }
+.qt-saved image.ok { color: %(ok)s; }
+.qt-saved image.err { color: %(err)s; }
+
+/* Settings page: padding 6 14 18, 18px between groups. */
+.qt-settings { padding: 6px 14px 18px; }
+.qt-group-title { font-size: 13px; font-weight: 700; color: %(fg)s; padding: 0 4px; }
+.qt-group-footer { font-size: 12px; color: %(dim)s; padding: 0 4px; }
+list.boxed-list.qt-boxed {
+  background-color: %(tint)s;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px %(outline)s;
+  color: %(fg)s;
+}
+list.qt-boxed > row {
+  min-height: 50px;
+  background: none;
+  border-bottom: 1px solid %(outline)s;
+  font-size: 14px;
+}
+list.qt-boxed > row:last-child { border-bottom: none; }
+list.qt-boxed > row:hover { background-color: alpha(%(fg)s, 0.03); }
+list.qt-boxed > row:first-child { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+list.qt-boxed > row:last-child { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+list.qt-boxed row .title { font-size: 14px; color: %(fg)s; }
+list.qt-boxed row .subtitle { font-size: 12px; color: %(dim)s; }
+list.qt-boxed row.property .title { font-size: 12px; color: %(dim)s; }
+list.qt-boxed row.property .subtitle { font-size: 14px; color: %(fg)s; opacity: 1; }
+list.qt-boxed row.combo .dropdown-arrow,
+list.qt-boxed row.combo label.combo-value,
+list.qt-boxed row.combo > box > box > stack label { color: %(dim)s; }
+list.qt-boxed row.entry .subtitle,
+list.qt-boxed row.entry label.subtitle { font-size: 12px; color: %(dim)s; }
+list.qt-boxed row.entry text { font-size: 14px; color: %(fg)s; caret-color: %(accent)s; }
+list.qt-boxed row.password text { letter-spacing: 2px; }
+/* The design shows only the visibility toggle, not libadwaita's pencil. */
+list.qt-boxed row.entry image.edit-icon { opacity: 0; min-width: 0; margin: 0; padding: 0; -gtk-icon-size: 0; }
+.qt-row-value { color: %(dim)s; font-size: 14px; }
+
+button.qt-icon-button {
+  min-width: 32px; min-height: 32px; padding: 0;
+  border-radius: 8px;
+  background-color: %(tint)s;
+  color: %(fg)s;
+  box-shadow: none;
+}
+button.qt-icon-button:hover { background-color: alpha(%(fg)s, 0.1); }
+
+/* Switch: 42x24 track, 18px white knob. */
+list.qt-boxed switch {
+  min-width: 42px; min-height: 24px;
+  padding: 0; border-radius: 12px;
+  background-color: %(off)s;
+  border: none;
+}
+list.qt-boxed switch:checked { background-color: %(switch_on)s; }
+list.qt-boxed switch > slider {
+  min-width: 18px; min-height: 18px; margin: 3px;
+  border-radius: 9px; background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
 
 /* Key hints: centred, padding 2 14 12, 12px dim, outlined key caps. */
 .qt-hints { padding: 2px 14px 12px; }

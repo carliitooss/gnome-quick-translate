@@ -1,4 +1,10 @@
-"""User configuration, read from ``~/.config/quick-translate/config.toml``."""
+"""User configuration in ``~/.config/quick-translate/config.toml``.
+
+The Settings page writes this file whenever something changes, so choices
+survive closing the app and restarting the computer. API keys go to the
+GNOME keyring instead (see :mod:`keystore`); only when no keyring is
+available are they kept here, under ``[api_keys]``.
+"""
 
 from __future__ import annotations
 
@@ -23,34 +29,15 @@ LANGUAGES: dict[str, str] = {
     "Ukrainian": "uk", "Vietnamese": "vi",
 }
 
-DEFAULT_CONFIG = """\
-# Quick Translate settings. Changes apply the next time the popup opens.
-
-# Language to translate English into: a name ("Spanish") or code ("es").
-target_language = "Spanish"
-
-# Translation service: "mymemory" (free, no key), "libretranslate" or "deepl".
-backend = "mymemory"
-
-# API key for the backend, if it needs one. You can also set the
-# QUICK_TRANSLATE_API_KEY environment variable (or DEEPL_API_KEY).
-api_key = ""
-
-# Server address, for a self-hosted LibreTranslate (e.g. "http://localhost:5000").
-url = ""
-
-# MyMemory only: an email raises the free daily limit from 5,000 to 50,000 characters.
-email = ""
-
-# Show the Enter / Esc hints at the bottom of the popup.
-show_key_hints = true
-
-# Close the popup when it loses focus, like a launcher.
-close_on_focus_loss = true
-
-# Close the popup after Enter copies a translation.
-close_after_copy = false
-"""
+# Backend id -> name shown in Settings, in the order the design lists them.
+SERVICES: dict[str, str] = {
+    "deepl": "DeepL",
+    "google": "Google Cloud Translation",
+    "libretranslate": "LibreTranslate",
+    "mymemory": "MyMemory (free, no key)",
+}
+KEY_REQUIRED = {"deepl", "google"}
+KEY_OPTIONAL = {"libretranslate", "mymemory"}
 
 
 def config_path() -> Path:
@@ -58,16 +45,96 @@ def config_path() -> Path:
     return Path(base) / "quick-translate" / "config.toml"
 
 
+def default_anki_file() -> str:
+    try:
+        from gi.repository import GLib
+        docs = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOCUMENTS)
+    except (ImportError, AttributeError):
+        docs = None
+    docs = docs or os.path.expanduser("~/Documents")
+    return os.path.join(docs, "Anki", "translations.tsv")
+
+
 @dataclass
 class Config:
     language_name: str = "Spanish"
     language_code: str = "es"
     backend: str = "mymemory"
-    settings: Settings = field(default_factory=Settings)
+    url: str = ""
+    email: str = ""
     show_key_hints: bool = True
     close_on_focus_loss: bool = True
     close_after_copy: bool = False
+    anki_export: bool = False
+    anki_file: str = field(default_factory=default_anki_file)
+    file_keys: dict[str, str] = field(default_factory=dict)  # only without a keyring
     problem: str = ""  # a config error to show instead of translating
+    path: Path | None = None
+
+    def settings(self, api_key: str) -> Settings:
+        url = self.url if self.backend == "libretranslate" else ""
+        return Settings(api_key=api_key, url=url, email=self.email)
+
+    def save(self) -> None:
+        """Write the config file atomically."""
+        path = self.path or config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".toml.tmp")
+        text = render(self)
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+
+
+def _toml_str(value: str) -> str:
+    out = value.replace("\\", "\\\\").replace('"', '\\"')
+    out = out.replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
+    return f'"{out}"'
+
+
+def _toml_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def render(cfg: Config) -> str:
+    lines = [
+        "# Quick Translate settings. The app's Settings page rewrites this file;",
+        "# you can also edit it by hand. Changes apply the next time the popup opens.",
+        "",
+        "# Language to translate English into: a name (\"Spanish\") or code (\"es\").",
+        f"target_language = {_toml_str(cfg.language_name)}",
+        "",
+        "# Translation service: " + ", ".join(f'"{k}"' for k in SERVICES) + ".",
+        f"backend = {_toml_str(cfg.backend)}",
+        "",
+        "# Server address for a self-hosted LibreTranslate (e.g. \"http://localhost:5000\").",
+        f"url = {_toml_str(cfg.url)}",
+        "",
+        "# MyMemory only: an email raises the free daily limit from 5,000 to 50,000 characters.",
+        f"email = {_toml_str(cfg.email)}",
+        "",
+        "# Anki: add every translation as a line (English<TAB>translation) to a TSV file.",
+        f"anki_export = {_toml_bool(cfg.anki_export)}",
+        f"anki_file = {_toml_str(cfg.anki_file)}",
+        "",
+        "# Show the Enter / Esc hints at the bottom of the popup.",
+        f"show_key_hints = {_toml_bool(cfg.show_key_hints)}",
+        "",
+        "# Close the popup when it loses focus, like a launcher.",
+        f"close_on_focus_loss = {_toml_bool(cfg.close_on_focus_loss)}",
+        "",
+        "# Close the popup after Enter copies a translation.",
+        f"close_after_copy = {_toml_bool(cfg.close_after_copy)}",
+        "",
+    ]
+    keys = {k: v for k, v in cfg.file_keys.items() if v}
+    if keys:
+        lines += ["# API keys, kept here only because no keyring was available.",
+                  "[api_keys]"]
+        lines += [f"{k} = {_toml_str(v)}" for k, v in sorted(keys.items())]
+        lines.append("")
+    return "\n".join(lines)
 
 
 def resolve_language(value: str) -> tuple[str, str] | None:
@@ -83,17 +150,20 @@ def resolve_language(value: str) -> tuple[str, str] | None:
 def load(path: Path | None = None) -> Config:
     """Read the config file, creating it with defaults on first run."""
     path = path or config_path()
-    cfg = Config()
+    cfg = Config(path=path)
+    if not path.exists():
+        try:
+            cfg.save()
+        except OSError:
+            pass
+        return cfg
     try:
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(DEFAULT_CONFIG, encoding="utf-8")
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
         cfg.problem = f"Config file error: {exc}"
-        data = {}
+        return cfg
     except OSError:
-        data = {}
+        return cfg
 
     lang = resolve_language(str(data.get("target_language", "Spanish")))
     if lang is None:
@@ -101,13 +171,20 @@ def load(path: Path | None = None) -> Config:
     else:
         cfg.language_name, cfg.language_code = lang
 
-    cfg.backend = str(data.get("backend", "mymemory")).strip().lower() or "mymemory"
-    key = (str(data.get("api_key", "")).strip()
-           or os.environ.get("QUICK_TRANSLATE_API_KEY", "")
-           or (os.environ.get("DEEPL_API_KEY", "") if cfg.backend == "deepl" else ""))
-    cfg.settings = Settings(api_key=key, url=str(data.get("url", "")).strip(),
-                            email=str(data.get("email", "")).strip())
+    backend = str(data.get("backend", "mymemory")).strip().lower() or "mymemory"
+    cfg.backend = backend
+    cfg.url = str(data.get("url", "")).strip()
+    cfg.email = str(data.get("email", "")).strip()
     cfg.show_key_hints = bool(data.get("show_key_hints", True))
     cfg.close_on_focus_loss = bool(data.get("close_on_focus_loss", True))
     cfg.close_after_copy = bool(data.get("close_after_copy", False))
+    cfg.anki_export = bool(data.get("anki_export", False))
+    cfg.anki_file = str(data.get("anki_file", "")).strip() or default_anki_file()
+
+    keys = data.get("api_keys")
+    if isinstance(keys, dict):
+        cfg.file_keys = {str(k): str(v) for k, v in keys.items()}
+    legacy = str(data.get("api_key", "")).strip()  # version 1 kept one key at the top
+    if legacy and backend not in cfg.file_keys:
+        cfg.file_keys[backend] = legacy
     return cfg

@@ -83,6 +83,23 @@ class DeepLTests(unittest.TestCase):
             t.DeepLTranslator(t.Settings()).translate("Hello", "de")
 
 
+class GoogleTests(unittest.TestCase):
+    def test_translates(self):
+        payload = {"data": {"translations": [{"translatedText": "Bonjour"}]}}
+        with mock.patch("urllib.request.urlopen", return_value=reply(payload)) as op:
+            out = t.GoogleTranslator(t.Settings(api_key="AIza")).translate("Hello", "fr")
+        self.assertEqual(out, "Bonjour")
+        req = op.call_args[0][0]
+        self.assertTrue(req.full_url.endswith("/v2?key=AIza"))
+        self.assertEqual(json.loads(req.data), {"q": ["Hello"], "source": "en", "target": "fr", "format": "text"})
+
+    def test_error_message_from_nested_error(self):
+        err = urllib.error.HTTPError("u", 400, "Bad", {}, io.BytesIO(b'{"error":{"code":400,"message":"API key not valid."}}'))
+        with mock.patch("urllib.request.urlopen", side_effect=err):
+            with self.assertRaisesRegex(t.ServiceError, "API key not valid"):
+                t.GoogleTranslator(t.Settings(api_key="x")).translate("Hello", "fr")
+
+
 class FactoryTests(unittest.TestCase):
     def test_unknown_backend(self):
         with self.assertRaises(t.ServiceError):

@@ -1,4 +1,4 @@
-"""The popup window: layout 1b, "Stacked dialog"."""
+"""The popup window: design 2a (translate) with the 2b Settings page."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
 
 from . import config as config_mod  # noqa: E402
+from . import history, keystore  # noqa: E402
+from .settings import SettingsPage  # noqa: E402
 from .translators import OfflineError, TranslationError, make_translator  # noqa: E402
 
 WIDTH = 440
@@ -51,16 +53,24 @@ class TranslatorWindow(Adw.ApplicationWindow):
         self.request_id = 0
         self.copied_timeout = 0
         self.was_active = False
+        self.dialog_open = False  # a file chooser is up: don't close on focus loss
 
         self.add_css_class("qt-window")
         self.set_resizable(False)
         self.set_default_size(WIDTH, -1)
 
         toolbar = Adw.ToolbarView()
-        toolbar.set_size_request(WIDTH, -1)
         toolbar.add_top_bar(self._build_header())
         toolbar.set_content(self._build_body())
-        self.set_content(toolbar)
+
+        self.settings_page: SettingsPage | None = None  # built on first use
+        self.pages = Gtk.Stack(vhomogeneous=False, hhomogeneous=True,
+                               transition_type=Gtk.StackTransitionType.CROSSFADE,
+                               transition_duration=150)
+        self.pages.set_size_request(WIDTH, -1)
+        self.pages.add_named(toolbar, "translate")
+        self.toasts = Adw.ToastOverlay(child=self.pages)
+        self.set_content(self.toasts)
 
         keys = Gtk.EventControllerKey()
         keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
@@ -80,6 +90,11 @@ class TranslatorWindow(Adw.ApplicationWindow):
         header.set_decoration_layout(":close")
         self.title_label = _label(f"English → {self.cfg.language_name}", "qt-title")
         header.set_title_widget(self.title_label)
+        gear = Gtk.Button(icon_name="emblem-system-symbolic", tooltip_text="Settings (Ctrl+,)")
+        gear.add_css_class("flat")
+        gear.add_css_class("qt-header-button")
+        gear.connect("clicked", lambda *_: self.show_settings())
+        header.pack_start(gear)
         return header
 
     def _build_body(self) -> Gtk.Widget:
@@ -148,6 +163,15 @@ class TranslatorWindow(Adw.ApplicationWindow):
         card.append(self.stack)
         body.append(card)
 
+        # "Saved to translations.tsv" under the card, after a translation
+        self.saved = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER, visible=False)
+        self.saved.add_css_class("qt-saved")
+        self.saved_icon = Gtk.Image(icon_name="emblem-ok-symbolic", pixel_size=15)
+        self.saved_label = _label("")
+        self.saved.append(self.saved_icon)
+        self.saved.append(self.saved_label)
+        body.append(self.saved)
+
         # Key hints
         self.hints = Gtk.Box(spacing=16, halign=Gtk.Align.CENTER)
         self.hints.add_css_class("qt-hints")
@@ -173,6 +197,8 @@ class TranslatorWindow(Adw.ApplicationWindow):
         return self.text.strip() != (self.translated_source or "")
 
     def set_state(self, state: State) -> None:
+        if state is not State.RESULT:
+            self.saved.set_visible(False)
         self.state = state
         self.stack.set_visible_child_name(state.value)
         self.spinner.set_spinning(state is State.LOADING)
@@ -216,7 +242,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
             self._show_error(self.cfg.problem, offline=False, source=text)
             return
         try:
-            translator = make_translator(self.cfg.backend, self.cfg.settings)
+            make_translator(self.cfg.backend, self.cfg.settings(""))  # validate the name
         except TranslationError as exc:
             self._show_error(str(exc), offline=False, source=text)
             return
@@ -224,10 +250,15 @@ class TranslatorWindow(Adw.ApplicationWindow):
         request_id = self.request_id
         self.translated_source = text
         self.set_state(State.LOADING)
-        target = self.cfg.language_code
+        cfg = self.cfg
+        backend, target = cfg.backend, cfg.language_code
 
         def work():
             try:
+                # The keyring lookup can block (e.g. an unlock prompt), so do it here.
+                key = (keystore.env_key(backend) or keystore.lookup(backend)
+                       or cfg.file_keys.get(backend, ""))
+                translator = make_translator(backend, cfg.settings(key))
                 result, error = translator.translate(text, target), None
             except TranslationError as exc:
                 result, error = None, exc
@@ -245,9 +276,32 @@ class TranslatorWindow(Adw.ApplicationWindow):
             self._show_error(str(error), offline=offline, source=source)
         else:
             self.result_label.set_label(result)
-            self.session.update(source=source, result=result)
+            self.session.update(source=source, result=result,
+                                translated_with=(self.cfg.language_name, self.cfg.backend))
             self.set_state(State.RESULT)
+            self._save_to_anki(source, result)
         return GLib.SOURCE_REMOVE
+
+    def _save_to_anki(self, source: str, result: str) -> None:
+        if not self.cfg.anki_export:
+            return
+        name = history.expand(self.cfg.anki_file).name
+        try:
+            outcome = history.append(self.cfg.anki_file, source, result)
+        except OSError as exc:
+            self._show_saved(f"Couldn’t save to {name}: {exc.strerror or exc}", ok=False)
+            return
+        if outcome == history.SaveResult.DUPLICATE:
+            self._show_saved(f"Already in {name}", ok=True)
+        else:
+            self._show_saved(f"Saved to {name}", ok=True)
+
+    def _show_saved(self, text: str, *, ok: bool) -> None:
+        self.saved_label.set_label(text)
+        self.saved_icon.set_from_icon_name("emblem-ok-symbolic" if ok else "dialog-warning-symbolic")
+        for cls, on in (("ok", ok), ("err", not ok)):
+            (self.saved_icon.add_css_class if on else self.saved_icon.remove_css_class)(cls)
+        self.saved.set_visible(True)
 
     def _show_error(self, message: str, *, offline: bool, source: str) -> None:
         self.translated_source = source
@@ -276,9 +330,51 @@ class TranslatorWindow(Adw.ApplicationWindow):
 
         self.copied_timeout = GLib.timeout_add(1500, reset)
 
+    # ----------------------------------------------------------------- pages
+
+    def show_settings(self) -> None:
+        if self.settings_page is None:
+            self.settings_page = SettingsPage(self, self.cfg)
+            self.pages.add_named(self.settings_page, "settings")
+        self.pages.set_visible_child_name("settings")
+        self.settings_page.service_row.grab_focus()
+
+    def show_translate(self) -> None:
+        if self.settings_page is not None:
+            self.settings_page.flush()
+        self.pages.set_visible_child_name("translate")
+        self.source.grab_focus()
+
+    def apply_config(self) -> None:
+        """Reflect a change made on the Settings page."""
+        name = self.cfg.language_name
+        self.title_label.set_label(f"English → {name}")
+        self.card_label.set_label(name)
+        self.hints.set_visible(self.cfg.show_key_hints)
+        if (name, self.cfg.backend) != self.session.get("translated_with"):
+            # A new language or service: the shown result no longer applies.
+            if self.translated_source is not None and self.state is not State.LOADING:
+                self.translated_source = None
+                self.session.pop("result", None)
+                self._update_enter_hint()
+
+    def show_toast(self, text: str) -> None:
+        self.toasts.add_toast(Adw.Toast(title=text))
+
     # ---------------------------------------------------------------- events
 
     def _on_key_pressed(self, _ctrl, keyval, _keycode, modifiers) -> bool:
+        on_settings = self.pages.get_visible_child_name() == "settings"
+        if on_settings:
+            back = keyval == Gdk.KEY_Escape or (
+                keyval == Gdk.KEY_Left and modifiers & Gdk.ModifierType.ALT_MASK)
+            if back:
+                self.show_translate()
+                return True
+            return False
+        if keyval == Gdk.KEY_comma and modifiers & Gdk.ModifierType.CONTROL_MASK:
+            self.show_settings()
+            return True
         if keyval == Gdk.KEY_Escape:
             self.close()
             return True
@@ -310,17 +406,19 @@ class TranslatorWindow(Adw.ApplicationWindow):
         if self.is_active():
             self.was_active = True
             return
-        if not (self.was_active and self.cfg.close_on_focus_loss):
+        if not (self.was_active and self.cfg.close_on_focus_loss) or self.dialog_open:
             return
 
         def maybe_close():
-            if not self.is_active() and self.get_visible():
+            if not self.is_active() and self.get_visible() and not self.dialog_open:
                 self.close()
             return GLib.SOURCE_REMOVE
 
         GLib.timeout_add(150, maybe_close)
 
     def _on_close_request(self, *_args) -> bool:
+        if self.settings_page is not None:
+            self.settings_page.flush()
         self.request_id += 1
         if self.copied_timeout:
             GLib.source_remove(self.copied_timeout)

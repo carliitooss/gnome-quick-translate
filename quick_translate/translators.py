@@ -61,6 +61,8 @@ def _request(url: str, *, data: dict | None = None, headers: dict | None = None,
         try:
             payload = json.loads(exc.read() or b"{}")
             detail = payload.get("error") or payload.get("message") or ""
+            if isinstance(detail, dict):  # Google: {"error": {"message": ...}}
+                detail = detail.get("message", "")
         except (ValueError, AttributeError):
             pass
         if exc.code in (401, 403):
@@ -187,7 +189,7 @@ class DeepLTranslator(Translator):
     def translate(self, text: str, target: str) -> str:
         key = self.settings.api_key
         if not key:
-            raise ServiceError("DeepL needs an API key. Add api_key to the config file.")
+            raise ServiceError("DeepL needs an API key. Add it in Settings.")
         host = "api-free.deepl.com" if key.endswith(":fx") else "api.deepl.com"
         url = self.settings.url.rstrip("/") + "/v2/translate" if self.settings.url else f"https://{host}/v2/translate"
         payload = {
@@ -202,8 +204,30 @@ class DeepLTranslator(Translator):
             raise ServiceError(reply.get("message") or "The service sent an unexpected reply.") from exc
 
 
+class GoogleTranslator(Translator):
+    """Google Cloud Translation (Basic, v2). Needs an API key."""
+
+    name = "google"
+    endpoint = "https://translation.googleapis.com/language/translate/v2"
+    _targets = {"zh": "zh-CN", "he": "iw", "nb": "no"}
+
+    def translate(self, text: str, target: str) -> str:
+        key = self.settings.api_key
+        if not key:
+            raise ServiceError("Google Cloud Translation needs an API key. Add it in Settings.")
+        payload = {"q": [text], "source": "en", "target": self._targets.get(target, target),
+                   "format": "text"}
+        url = f"{self.endpoint}?{urllib.parse.urlencode({'key': key})}"
+        reply = _request(url, data=payload)
+        try:
+            return reply["data"]["translations"][0]["translatedText"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ServiceError("The service sent an unexpected reply.") from exc
+
+
 BACKENDS: dict[str, type[Translator]] = {
-    cls.name: cls for cls in (MyMemoryTranslator, LibreTranslateTranslator, DeepLTranslator)
+    cls.name: cls for cls in (MyMemoryTranslator, LibreTranslateTranslator, DeepLTranslator,
+                              GoogleTranslator)
 }
 
 
