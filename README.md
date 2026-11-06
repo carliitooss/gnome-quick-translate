@@ -247,5 +247,3 @@ quick_translate/
 ├── keystore.py      Claves en el llavero de GNOME (libsecret)
 └── history.py       Fichero TSV para Anki
 ```
-
-El diseño original, hecho con Claude Design, está en [`project/`](project/): el diseño 1b (`Translator Popup.dc.html`) y los diseños 2a y 2b con los ajustes (`Translator Popup v2.dc.html`).
