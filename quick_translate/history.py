@@ -1,6 +1,6 @@
 """Append translations to a TSV file that Anki can import.
 
-Each line is ``English<TAB>translation``. A new file starts with Anki's
+Each line is ``original<TAB>translation``. A new file starts with Anki's
 header lines so that File → Import picks the tab separator and plain-text
 fields by itself. A pair already in the file isn't added again.
 """

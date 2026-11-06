@@ -80,6 +80,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
         self.connect("notify::is-active", self._on_active_changed)
         self.connect("close-request", self._on_close_request)
 
+        self.apply_config()  # sets the language labels
         self._restore_session()
 
     # ---------------------------------------------------------------- layout
@@ -88,7 +89,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.add_css_class("qt-header")
         header.set_decoration_layout(":close")
-        self.title_label = _label(f"English → {self.cfg.language_name}", "qt-title")
+        self.title_label = _label("", "qt-title")
         header.set_title_widget(self.title_label)
         gear = Gtk.Button(icon_name="emblem-system-symbolic", tooltip_text="Settings (Ctrl+,)")
         gear.add_css_class("flat")
@@ -107,13 +108,13 @@ class TranslatorWindow(Adw.ApplicationWindow):
                                    accepts_tab=False, hexpand=True)
         self.source.add_css_class("qt-source")
         self.source.set_pixels_inside_wrap(4)  # ≈ line-height 1.45 at 16px
-        self.source.update_property([Gtk.AccessibleProperty.LABEL], ["English text"])
+
 
         scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,
                                       propagate_natural_height=True, max_content_height=220)
         scroller.set_child(self.source)
 
-        self.placeholder = _label("Type in English…", "qt-placeholder",
+        self.placeholder = _label("", "qt-placeholder",
                                   valign=Gtk.Align.START, can_target=False)
         overlay = Gtk.Overlay()
         overlay.set_child(scroller)
@@ -127,7 +128,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
         # Translation card
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         card.add_css_class("qt-card")
-        self.card_label = _label(self.cfg.language_name, "qt-card-label")
+        self.card_label = _label("", "qt-card-label")
         card.append(self.card_label)
 
         self.stack = Gtk.Stack(vhomogeneous=False, interpolate_size=True,
@@ -241,6 +242,9 @@ class TranslatorWindow(Adw.ApplicationWindow):
         if self.cfg.problem:
             self._show_error(self.cfg.problem, offline=False, source=text)
             return
+        if self.cfg.source_code == self.cfg.language_code:
+            self._show_error("Choose two different languages in Settings.", offline=False, source=text)
+            return
         try:
             make_translator(self.cfg.backend, self.cfg.settings(""))  # validate the name
         except TranslationError as exc:
@@ -251,7 +255,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
         self.translated_source = text
         self.set_state(State.LOADING)
         cfg = self.cfg
-        backend, target = cfg.backend, cfg.language_code
+        backend, source_lang, target = cfg.backend, cfg.source_code, cfg.language_code
 
         def work():
             try:
@@ -259,7 +263,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
                 key = (keystore.env_key(backend) or keystore.lookup(backend)
                        or cfg.file_keys.get(backend, ""))
                 translator = make_translator(backend, cfg.settings(key))
-                result, error = translator.translate(text, target), None
+                result, error = translator.translate(text, source_lang, target), None
             except TranslationError as exc:
                 result, error = None, exc
             except Exception as exc:  # never leave the spinner running
@@ -277,7 +281,7 @@ class TranslatorWindow(Adw.ApplicationWindow):
         else:
             self.result_label.set_label(result)
             self.session.update(source=source, result=result,
-                                translated_with=(self.cfg.language_name, self.cfg.backend))
+                                translated_with=self._translated_with())
             self.set_state(State.RESULT)
             self._save_to_anki(source, result)
         return GLib.SOURCE_REMOVE
@@ -345,13 +349,18 @@ class TranslatorWindow(Adw.ApplicationWindow):
         self.pages.set_visible_child_name("translate")
         self.source.grab_focus()
 
+    def _translated_with(self) -> tuple:
+        return (self.cfg.source_name, self.cfg.language_name, self.cfg.backend)
+
     def apply_config(self) -> None:
-        """Reflect a change made on the Settings page."""
-        name = self.cfg.language_name
-        self.title_label.set_label(f"English → {name}")
-        self.card_label.set_label(name)
+        """Reflect the languages in the labels, after startup or a Settings change."""
+        source, target = self.cfg.source_name, self.cfg.language_name
+        self.title_label.set_label(f"{source} → {target}")
+        self.card_label.set_label(target)
+        self.placeholder.set_label(f"Type in {source}…")
+        self.source.update_property([Gtk.AccessibleProperty.LABEL], [f"{source} text"])
         self.hints.set_visible(self.cfg.show_key_hints)
-        if (name, self.cfg.backend) != self.session.get("translated_with"):
+        if self._translated_with() != self.session.get("translated_with"):
             # A new language or service: the shown result no longer applies.
             if self.translated_source is not None and self.state is not State.LOADING:
                 self.translated_source = None

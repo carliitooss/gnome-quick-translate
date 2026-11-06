@@ -34,7 +34,7 @@ class MyMemoryTests(unittest.TestCase):
     def test_translates_and_unescapes(self):
         payload = {"responseStatus": 200, "responseData": {"translatedText": "l&#39;eau"}}
         with mock.patch("urllib.request.urlopen", return_value=reply(payload)) as op:
-            out = t.MyMemoryTranslator(t.Settings(email="a@b.c")).translate("water", "fr")
+            out = t.MyMemoryTranslator(t.Settings(email="a@b.c")).translate("water", "en", "fr")
         self.assertEqual(out, "l'eau")
         url = op.call_args[0][0].full_url
         self.assertIn("langpair=en%7Cfr", url)
@@ -44,24 +44,24 @@ class MyMemoryTests(unittest.TestCase):
         payload = {"responseStatus": 429, "responseData": {"translatedText": "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS"}}
         with mock.patch("urllib.request.urlopen", return_value=reply(payload)):
             with self.assertRaises(t.ServiceError):
-                t.MyMemoryTranslator(t.Settings()).translate("hi", "es")
+                t.MyMemoryTranslator(t.Settings()).translate("hi", "en", "es")
 
     def test_offline(self):
         with mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError(OSError("Name or service not known"))):
             with self.assertRaises(t.OfflineError):
-                t.MyMemoryTranslator(t.Settings()).translate("hi", "es")
+                t.MyMemoryTranslator(t.Settings()).translate("hi", "en", "es")
 
     def test_http_error_is_service_error(self):
         err = urllib.error.HTTPError("u", 403, "Forbidden", {}, io.BytesIO(b'{"error":"bad key"}'))
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with self.assertRaisesRegex(t.ServiceError, "bad key"):
-                t.MyMemoryTranslator(t.Settings()).translate("hi", "es")
+                t.MyMemoryTranslator(t.Settings()).translate("hi", "en", "es")
 
 
 class LibreTranslateTests(unittest.TestCase):
     def test_posts_json(self):
         with mock.patch("urllib.request.urlopen", return_value=reply({"translatedText": "Hola"})) as op:
-            out = t.LibreTranslateTranslator(t.Settings(url="http://localhost:5000/", api_key="k")).translate("Hi", "es")
+            out = t.LibreTranslateTranslator(t.Settings(url="http://localhost:5000/", api_key="k")).translate("Hi", "en", "es")
         self.assertEqual(out, "Hola")
         req = op.call_args[0][0]
         self.assertEqual(req.full_url, "http://localhost:5000/translate")
@@ -71,7 +71,7 @@ class LibreTranslateTests(unittest.TestCase):
 class DeepLTests(unittest.TestCase):
     def test_free_key_uses_free_host(self):
         with mock.patch("urllib.request.urlopen", return_value=reply({"translations": [{"text": "Hallo"}]})) as op:
-            out = t.DeepLTranslator(t.Settings(api_key="abc:fx")).translate("Hello", "de")
+            out = t.DeepLTranslator(t.Settings(api_key="abc:fx")).translate("Hello", "en", "de")
         self.assertEqual(out, "Hallo")
         req = op.call_args[0][0]
         self.assertEqual(req.full_url, "https://api-free.deepl.com/v2/translate")
@@ -80,14 +80,14 @@ class DeepLTests(unittest.TestCase):
 
     def test_needs_key(self):
         with self.assertRaises(t.ServiceError):
-            t.DeepLTranslator(t.Settings()).translate("Hello", "de")
+            t.DeepLTranslator(t.Settings()).translate("Hello", "en", "de")
 
 
 class GoogleTests(unittest.TestCase):
     def test_translates(self):
         payload = {"data": {"translations": [{"translatedText": "Bonjour"}]}}
         with mock.patch("urllib.request.urlopen", return_value=reply(payload)) as op:
-            out = t.GoogleTranslator(t.Settings(api_key="AIza")).translate("Hello", "fr")
+            out = t.GoogleTranslator(t.Settings(api_key="AIza")).translate("Hello", "en", "fr")
         self.assertEqual(out, "Bonjour")
         req = op.call_args[0][0]
         self.assertTrue(req.full_url.endswith("/v2?key=AIza"))
@@ -97,7 +97,31 @@ class GoogleTests(unittest.TestCase):
         err = urllib.error.HTTPError("u", 400, "Bad", {}, io.BytesIO(b'{"error":{"code":400,"message":"API key not valid."}}'))
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with self.assertRaisesRegex(t.ServiceError, "API key not valid"):
-                t.GoogleTranslator(t.Settings(api_key="x")).translate("Hello", "fr")
+                t.GoogleTranslator(t.Settings(api_key="x")).translate("Hello", "en", "fr")
+
+
+class SourceLanguageTests(unittest.TestCase):
+    def test_mymemory_langpair(self):
+        payload = {"responseStatus": 200, "responseData": {"translatedText": "Hello"}}
+        with mock.patch("urllib.request.urlopen", return_value=reply(payload)) as op:
+            t.MyMemoryTranslator(t.Settings()).translate("Hola", "es", "en")
+        self.assertIn("langpair=es%7Cen", op.call_args[0][0].full_url)
+
+    def test_deepl_source_and_target(self):
+        with mock.patch("urllib.request.urlopen", return_value=reply({"translations": [{"text": "Hello"}]})) as op:
+            t.DeepLTranslator(t.Settings(api_key="k:fx")).translate("Hallo", "de", "en")
+        body = json.loads(op.call_args[0][0].data)
+        self.assertEqual((body["source_lang"], body["target_lang"]), ("DE", "EN-US"))
+
+    def test_libretranslate_and_google_source(self):
+        with mock.patch("urllib.request.urlopen", return_value=reply({"translatedText": "x"})) as op:
+            t.LibreTranslateTranslator(t.Settings()).translate("Ciao", "it", "fr")
+        self.assertEqual(json.loads(op.call_args[0][0].data)["source"], "it")
+        payload = {"data": {"translations": [{"translatedText": "x"}]}}
+        with mock.patch("urllib.request.urlopen", return_value=reply(payload)) as op:
+            t.GoogleTranslator(t.Settings(api_key="k")).translate("שלום", "he", "zh")
+        body = json.loads(op.call_args[0][0].data)
+        self.assertEqual((body["source"], body["target"]), ("iw", "zh-CN"))
 
 
 class FactoryTests(unittest.TestCase):

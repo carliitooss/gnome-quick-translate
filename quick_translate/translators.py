@@ -1,6 +1,6 @@
 """Translation backends.
 
-Every backend turns English text into the target language and raises
+Every backend translates text between two languages and raises
 :class:`OfflineError` when the network can't be reached or
 :class:`ServiceError` when the service answers with an error. They use only
 the standard library so the app has no dependencies beyond PyGObject.
@@ -124,8 +124,8 @@ class Translator:
     def __init__(self, settings: Settings):
         self.settings = settings
 
-    def translate(self, text: str, target: str) -> str:
-        """Translate English ``text`` into the ISO 639-1 ``target`` code."""
+    def translate(self, text: str, source: str, target: str) -> str:
+        """Translate ``text`` between two ISO 639-1 codes."""
         raise NotImplementedError
 
 
@@ -139,10 +139,10 @@ class MyMemoryTranslator(Translator):
     name = "mymemory"
     endpoint = "https://api.mymemory.translated.net/get"
 
-    def translate(self, text: str, target: str) -> str:
+    def translate(self, text: str, source: str, target: str) -> str:
         out = []
         for piece in split_text(text, 480):
-            params = {"q": piece, "langpair": f"en|{target}"}
+            params = {"q": piece, "langpair": f"{source}|{target}"}
             if self.settings.email:
                 params["de"] = self.settings.email
             if self.settings.api_key:
@@ -165,9 +165,9 @@ class LibreTranslateTranslator(Translator):
     name = "libretranslate"
     default_url = "https://libretranslate.com"
 
-    def translate(self, text: str, target: str) -> str:
+    def translate(self, text: str, source: str, target: str) -> str:
         base = (self.settings.url or self.default_url).rstrip("/")
-        payload = {"q": text, "source": "en", "target": target, "format": "text"}
+        payload = {"q": text, "source": source, "target": target, "format": "text"}
         if self.settings.api_key:
             payload["api_key"] = self.settings.api_key
         reply = _request(f"{base}/translate", data=payload)
@@ -186,7 +186,7 @@ class DeepLTranslator(Translator):
     # DeepL wants regional variants for a few targets.
     _targets = {"en": "EN-US", "pt": "PT-PT", "zh": "ZH-HANS"}
 
-    def translate(self, text: str, target: str) -> str:
+    def translate(self, text: str, source: str, target: str) -> str:
         key = self.settings.api_key
         if not key:
             raise ServiceError("DeepL needs an API key. Add it in Settings.")
@@ -194,7 +194,7 @@ class DeepLTranslator(Translator):
         url = self.settings.url.rstrip("/") + "/v2/translate" if self.settings.url else f"https://{host}/v2/translate"
         payload = {
             "text": [text],
-            "source_lang": "EN",
+            "source_lang": source.upper(),  # source codes have no regional variant
             "target_lang": self._targets.get(target, target.upper()),
         }
         reply = _request(url, data=payload, headers={"Authorization": f"DeepL-Auth-Key {key}"})
@@ -211,11 +211,12 @@ class GoogleTranslator(Translator):
     endpoint = "https://translation.googleapis.com/language/translate/v2"
     _targets = {"zh": "zh-CN", "he": "iw", "nb": "no"}
 
-    def translate(self, text: str, target: str) -> str:
+    def translate(self, text: str, source: str, target: str) -> str:
         key = self.settings.api_key
         if not key:
             raise ServiceError("Google Cloud Translation needs an API key. Add it in Settings.")
-        payload = {"q": [text], "source": "en", "target": self._targets.get(target, target),
+        payload = {"q": [text], "source": self._targets.get(source, source),
+                   "target": self._targets.get(target, target),
                    "format": "text"}
         url = f"{self.endpoint}?{urllib.parse.urlencode({'key': key})}"
         reply = _request(url, data=payload)

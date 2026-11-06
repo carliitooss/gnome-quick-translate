@@ -19,7 +19,7 @@ from .translators import Settings
 # English name, as in the design ("English → Spanish").
 LANGUAGES: dict[str, str] = {
     "Arabic": "ar", "Bulgarian": "bg", "Catalan": "ca", "Chinese": "zh",
-    "Czech": "cs", "Danish": "da", "Dutch": "nl", "Estonian": "et",
+    "Czech": "cs", "Danish": "da", "Dutch": "nl", "English": "en", "Estonian": "et",
     "Finnish": "fi", "French": "fr", "German": "de", "Greek": "el",
     "Hebrew": "he", "Hindi": "hi", "Hungarian": "hu", "Indonesian": "id",
     "Italian": "it", "Japanese": "ja", "Korean": "ko", "Latvian": "lv",
@@ -57,7 +57,9 @@ def default_anki_file() -> str:
 
 @dataclass
 class Config:
-    language_name: str = "Spanish"
+    source_name: str = "English"
+    source_code: str = "en"
+    language_name: str = "Spanish"  # the target language
     language_code: str = "es"
     backend: str = "mymemory"
     url: str = ""
@@ -102,7 +104,8 @@ def render(cfg: Config) -> str:
         "# Quick Translate settings. The app's Settings page rewrites this file;",
         "# you can also edit it by hand. Changes apply the next time the popup opens.",
         "",
-        "# Language to translate English into: a name (\"Spanish\") or code (\"es\").",
+        "# Languages to translate from and into: a name (\"Spanish\") or code (\"es\").",
+        f"source_language = {_toml_str(cfg.source_name)}",
         f"target_language = {_toml_str(cfg.language_name)}",
         "",
         "# Translation service: " + ", ".join(f'"{k}"' for k in SERVICES) + ".",
@@ -114,7 +117,7 @@ def render(cfg: Config) -> str:
         "# MyMemory only: an email raises the free daily limit from 5,000 to 50,000 characters.",
         f"email = {_toml_str(cfg.email)}",
         "",
-        "# Anki: add every translation as a line (English<TAB>translation) to a TSV file.",
+        "# Anki: add every translation as a line (original<TAB>translation) to a TSV file.",
         f"anki_export = {_toml_bool(cfg.anki_export)}",
         f"anki_file = {_toml_str(cfg.anki_file)}",
         "",
@@ -165,11 +168,15 @@ def load(path: Path | None = None) -> Config:
     except OSError:
         return cfg
 
-    lang = resolve_language(str(data.get("target_language", "Spanish")))
-    if lang is None:
-        cfg.problem = f"Unknown target language “{data.get('target_language')}” in config."
-    else:
-        cfg.language_name, cfg.language_code = lang
+    for key, default, attrs in (("source_language", "English", ("source_name", "source_code")),
+                                ("target_language", "Spanish", ("language_name", "language_code"))):
+        lang = resolve_language(str(data.get(key, default)))
+        if lang is None:
+            kind = key.split("_")[0]
+            cfg.problem = f"Unknown {kind} language “{data.get(key)}” in config."
+        else:
+            setattr(cfg, attrs[0], lang[0])
+            setattr(cfg, attrs[1], lang[1])
 
     backend = str(data.get("backend", "mymemory")).strip().lower() or "mymemory"
     cfg.backend = backend

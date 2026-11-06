@@ -1,7 +1,7 @@
 <h1 align="center">Quick Translate</h1>
 
 <p align="center">
-  <strong>Traduce del inglés sin salir de lo que estás haciendo.</strong><br>
+  <strong>Traduce sin salir de lo que estás haciendo.</strong><br>
   Una ventana emergente para GNOME: pulsas un atajo, escribes y pulsas Enter.
 </p>
 
@@ -31,7 +31,7 @@
 - **Atajo global:** <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd> abre la ventana desde cualquier sitio y vuelve a cerrarla.
 - **Todo con el teclado:** <kbd>Enter</kbd> traduce, otro <kbd>Enter</kbd> copia la traducción y <kbd>Esc</kbd> cierra.
 - **Varios servicios:** DeepL, Google Cloud Translation, LibreTranslate o MyMemory, que es gratis y no necesita clave.
-- **Más de 30 idiomas de destino**, que eliges en los ajustes.
+- **Más de 30 idiomas**, tanto de origen como de destino, que eliges en los ajustes (por defecto, de inglés a español).
 - **Para Anki:** cada traducción puede ir a un fichero TSV listo para importar como tarjetas.
 - **Claves en el llavero de GNOME**, no en texto plano.
 - **Aspecto de GNOME:** usa libadwaita y cambia entre tema claro y oscuro al momento, junto con el sistema.
@@ -46,7 +46,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/settings.png" alt="Página de ajustes con servicio, clave de API, idioma y exportación a Anki" width="820">
+  <img src="docs/settings.png" alt="Página de ajustes con servicio, clave de API, idiomas de origen y destino y exportación a Anki" width="820">
   <br>
   <sub>Ajustes, que se abren desde el engranaje de la cabecera</sub>
 </p>
@@ -109,7 +109,7 @@ Para probarla sin instalar nada, ejecuta `python3 -m quick_translate` dentro de 
 ## ⌨️ Uso
 
 1. Pulsa <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>.
-2. Escribe en inglés.
+2. Escribe el texto en el idioma de origen (inglés, si no lo has cambiado).
 3. Pulsa <kbd>Enter</kbd> para traducir y otra vez <kbd>Enter</kbd> para copiar la traducción.
 4. Pulsa <kbd>Esc</kbd> para cerrar.
 
@@ -140,7 +140,8 @@ Se abren con el engranaje de la cabecera o con <kbd>Ctrl</kbd>+<kbd>,</kbd>. **C
 | **Service** | El servicio de traducción (ver [Servicios](#servicios)) |
 | **API key** | La clave del servicio, guardada en el llavero de GNOME con una entrada por servicio. No aparece con MyMemory, que no la necesita |
 | **Server** | Solo con LibreTranslate: la dirección de tu servidor |
-| **Translate English into** | El idioma de destino. Puedes escribir para buscarlo en la lista |
+| **Translate from** | El idioma en el que escribes. Puedes escribir para buscarlo en la lista |
+| **Translate into** | El idioma al que se traduce. Si coincide con el de origen, los ajustes te avisan |
 | **Save translations to TSV** | Guarda cada traducción para Anki (ver abajo) |
 | **File** | Dónde se guarda el TSV. Se elige con el botón de carpeta |
 
@@ -157,7 +158,7 @@ Where is the nearest train station?	¿Dónde está la estación de tren más cer
 I'd like a coffee, please.	Quisiera un café, por favor.
 ```
 
-- Cada línea es una tarjeta: el inglés va en el anverso y la traducción en el reverso.
+- Cada línea es una tarjeta: el texto original va en el anverso y la traducción en el reverso. La fila *Columns* de los ajustes indica qué idioma va en cada columna.
 - Las parejas repetidas no se vuelven a añadir.
 - Las cabeceras `#separator:tab` y `#html:false` hacen que Anki configure la importación solo. En Anki, ve a **Archivo → Importar** y elige el fichero.
 
@@ -180,7 +181,8 @@ Las variables de entorno `QUICK_TRANSLATE_API_KEY`, `DEEPL_API_KEY` y `GOOGLE_TR
 Los ajustes viven en `~/.config/quick-translate/config.toml`, que solo puede leer tu usuario. La app lo reescribe con cada cambio, pero también puedes editarlo a mano; los cambios se aplican la próxima vez que se abre la ventana.
 
 ```toml
-target_language = "Spanish"     # o un código: "de", "fr", "ja"…
+source_language = "English"     # idioma de origen: un nombre o un código ("en")
+target_language = "Spanish"     # idioma de destino: "de", "fr", "ja"…
 backend = "mymemory"            # "deepl", "google", "libretranslate" o "mymemory"
 url = ""                        # servidor de LibreTranslate
 email = ""                      # MyMemory: sube el límite gratuito a 50.000 caracteres

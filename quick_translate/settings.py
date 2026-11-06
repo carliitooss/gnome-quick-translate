@@ -46,8 +46,9 @@ class SettingsPage(Adw.Bin):
         self.cfg = cfg
         self.services = list(config_mod.SERVICES)
         self.languages = list(config_mod.LANGUAGES)
-        if cfg.language_name not in self.languages:  # an unlisted ISO code
-            self.languages.append(cfg.language_name)
+        for name in (cfg.source_name, cfg.language_name):
+            if name not in self.languages:  # an unlisted ISO code
+                self.languages.append(name)
         self.key_timeout = 0
         self.loading_key = False
         self.has_keyring = keystore.keyring_available()
@@ -103,16 +104,12 @@ class SettingsPage(Adw.Bin):
         box.append(self.translation)
 
         # Language
-        language = _Group("Language")
-        self.language_row = Adw.ComboRow(title="Translate English into",
-                                         model=Gtk.StringList.new(self.languages),
-                                         enable_search=True)
-        self.language_row.set_expression(
-            Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
-        self.language_row.set_selected(self.languages.index(self.cfg.language_name))
-        self.language_row.connect("notify::selected", self._on_language_changed)
-        language.add(self.language_row)
-        box.append(language)
+        self.language = _Group("Language")
+        self.source_row = self._language_row("Translate from", self.cfg.source_name)
+        self.language_row = self._language_row("Translate into", self.cfg.language_name)
+        self.language.add(self.source_row)
+        self.language.add(self.language_row)
+        box.append(self.language)
 
         # Anki
         self.anki = _Group("Anki", "In Anki, use File → Import and choose this file.")
@@ -140,6 +137,14 @@ class SettingsPage(Adw.Bin):
         box.append(self.anki)
         return box
 
+    def _language_row(self, title: str, selected: str) -> Adw.ComboRow:
+        row = Adw.ComboRow(title=title, model=Gtk.StringList.new(self.languages),
+                           enable_search=True)
+        row.set_expression(Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
+        row.set_selected(self.languages.index(selected))
+        row.connect("notify::selected", self._on_language_changed)
+        return row
+
     # ----------------------------------------------------------------- state
 
     @property
@@ -166,7 +171,10 @@ class SettingsPage(Adw.Bin):
         self.file_row.set_visible(on)
         self.columns_row.set_visible(on)
         self.anki.footer.set_visible(on)
-        self.columns_label.set_label(f"English, {self.cfg.language_name}")
+        self.columns_label.set_label(f"{self.cfg.source_name}, {self.cfg.language_name}")
+        same = self.cfg.source_code == self.cfg.language_code
+        self.language.footer.set_label("Choose two different languages.")
+        self.language.footer.set_visible(same)
 
     def _load_key(self) -> None:
         service = self.service
@@ -229,10 +237,11 @@ class SettingsPage(Adw.Bin):
         self._save()
 
     def _on_language_changed(self, *_args) -> None:
-        name = self.languages[self.language_row.get_selected()]
-        resolved = config_mod.resolve_language(name)
-        if resolved:
-            self.cfg.language_name, self.cfg.language_code = resolved
+        source = config_mod.resolve_language(self.languages[self.source_row.get_selected()])
+        target = config_mod.resolve_language(self.languages[self.language_row.get_selected()])
+        if source and target:
+            self.cfg.source_name, self.cfg.source_code = source
+            self.cfg.language_name, self.cfg.language_code = target
             self.cfg.problem = ""
         self._update_anki_rows()
         self._save()
