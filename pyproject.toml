@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quick-translate"
+version = "1.0.0"
+description = "A GNOME popup that translates English text (GTK 4 + libadwaita)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+# PyGObject, GTK 4 and libadwaita come from the system packages; see README.
+
+[project.scripts]
+quick-translate = "quick_translate.app:main"
+
+[tool.setuptools]
+packages = ["quick_translate"]

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Quick Translate
+Comment=Translate English text from a popup
+Exec=quick-translate
+Icon=accessories-dictionary
+Terminal=false
+Categories=Utility;GTK;GNOME;
+Keywords=translate;translation;english;language;
+StartupNotify=true
+DBusActivatable=false
