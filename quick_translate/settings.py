@@ -148,14 +148,16 @@ class SettingsPage(Adw.Bin):
 
     def _update_service_rows(self) -> None:
         service = self.service
+        needs_key_row = service not in config_mod.NO_KEY
+        self.key_row.set_visible(needs_key_row)
         self.key_row.set_title("API key" if service in config_mod.KEY_REQUIRED else "API key (optional)")
         self.url_row.set_visible(service == "libretranslate")
-        if self.has_keyring:
+        if not needs_key_row:
+            footer = "Free, no API key needed. About 5,000 characters a day."
+        elif self.has_keyring:
             footer = "Stored in the GNOME keyring."
         else:
             footer = "No keyring available, so the key is stored in the config file."
-        if service == "mymemory":
-            footer = "Free, about 5,000 characters a day. " + footer
         self.translation.footer.set_label(footer)
         self.translation.footer.set_visible(True)
 

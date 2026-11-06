@@ -71,7 +71,7 @@ Pulsa el engranaje (o Ctrl+,) para abrir los ajustes. Cada cambio se guarda al m
 | **DeepL** | Sí | Las claves gratuitas (terminadas en `:fx`) usan `api-free.deepl.com` automáticamente |
 | **Google Cloud Translation** | Sí | API Basic (v2). Crea la clave en Google Cloud Console |
 | **LibreTranslate** | Según el servidor | Aparece un campo *Server* para tu servidor (p. ej. `http://localhost:5000`); por defecto usa libretranslate.com, que pide clave |
-| **MyMemory** (predeterminado) | No | Gratis, unos 5.000 caracteres al día |
+| **MyMemory** (predeterminado) | No | Gratis, unos 5.000 caracteres al día. El campo de la clave no aparece |
 
 Las variables de entorno `QUICK_TRANSLATE_API_KEY`, `DEEPL_API_KEY` y `GOOGLE_TRANSLATE_API_KEY` tienen prioridad sobre la clave guardada.
 

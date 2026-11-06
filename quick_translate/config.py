@@ -37,7 +37,7 @@ SERVICES: dict[str, str] = {
     "mymemory": "MyMemory (free, no key)",
 }
 KEY_REQUIRED = {"deepl", "google"}
-KEY_OPTIONAL = {"libretranslate", "mymemory"}
+NO_KEY = {"mymemory"}  # the Settings page hides the API key row for these
 
 
 def config_path() -> Path:
